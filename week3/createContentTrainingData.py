@@ -4,20 +4,22 @@ import random
 import pandas as pd
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import nltk
+nltk.download("punkt")
+from nltk.tokenize import word_tokenize
+import string
 from nltk.stem import SnowballStemmer
 
 def transform_name(product_name):
     # Transforming the name strings to lowercase, changing punctuation characters  
     # to spaces, and stemming (you can use the NLTK Snowball stemmer)
-    punctuation= '''!()-[]{};:'"\, <>./?@#$%^&*_~'''
-    emptyString=""
     spaceString=" "
     product_name.lower()
-    for x in punctuation:
+    for x in string.punctuation:
         product_name=product_name.replace(x,spaceString)
     stemmer = SnowballStemmer("english")
-    product_name = " ".join((stemmer.stem(w) for w in product_name.split()))
-    return product_name
+    transformed_product_name = " ".join((stemmer.stem(w) for w in word_tokenize(product_name)))
+    return transformed_product_name
 
 def count_cats(outputfile,min_products):
     df = pd.read_csv(outputfile,names=['category'])
@@ -39,8 +41,10 @@ general.add_argument("--output", default="/workspace/datasets/fasttext/output.fa
 # Consuming all of the product data will take over an hour! But we still want to be able to obtain a representative sample.
 general.add_argument("--sample_rate", default=1.0, type=float, help="The rate at which to sample input (default is 1.0)")
 
-# IMPLEMENT: Setting min_products removes infrequent categories and makes the classifier's task easier.
+# IMPLEMENTED: Setting min_products removes infrequent categories and makes the classifier's task easier.
 general.add_argument("--min_products", default=0, type=int, help="The minimum number of products per category (default is 0).")
+
+general.add_argument("--categories_depth", default=-1, type=int, help="The depth at which to extract the category labels. -1 means full depth.")
 
 args = parser.parse_args()
 output_file = args.output
@@ -49,13 +53,22 @@ output_dir = path.parent
 if os.path.isdir(output_dir) == False:
         os.mkdir(output_dir)
 
+#categories_file = output_dir.joinpath("categories.txt")
+
 if args.input:
     directory = args.input
-# IMPLEMENT:  Track the number of items in each category and only output if above the min
+# IMPLEMENTED:  Track the number of items in each category and only output if above the min
 min_products = args.min_products
 sample_rate = args.sample_rate
 
+#IMPLEMENTATION : WIP Category path
+categories_depth = args.categories_depth
+if categories_depth == 0:
+    categories_depth = -1
+
 print("Preparing results to %s" % output_file)
+#print("Preparing categories name to %s" % categories_file)
+
 with open(output_file, 'w') as output:
     for filename in os.listdir(directory):
         if filename.endswith(".xml"):
@@ -75,4 +88,5 @@ with open(output_file, 'w') as output:
                       # Replace newline chars with spaces so fastText doesn't complain
                       name = child.find('name').text.replace('\n', ' ')
                       output.write("__label__%s %s\n" % (cat, transform_name(name)))
+
 count_cats(output_file, min_products)                      
